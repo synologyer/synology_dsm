@@ -1,6 +1,6 @@
 module github.com/whc95800/synology_dsm
 
-go 1.23.0
+go 1.23.9
 
 toolchain go1.24.4
 
