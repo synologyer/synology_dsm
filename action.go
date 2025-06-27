@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/dtapps/allinssl_plugins/synology/certificate"
-	"github.com/dtapps/allinssl_plugins/synology/core"
-	"github.com/dtapps/allinssl_plugins/synology/openapi"
+	"github.com/whc95800/synology_dsm/certificate"
+	"github.com/whc95800/synology_dsm/core"
+	"github.com/whc95800/synology_dsm/openapi"
 )
 
 // 上传证书到证书管理

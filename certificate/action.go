@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dtapps/allinssl_plugins/synology/core"
-	"github.com/dtapps/allinssl_plugins/synology/openapi"
-	"github.com/dtapps/allinssl_plugins/synology/types"
+	"github.com/whc95800/synology_dsm/core"
+	"github.com/whc95800/synology_dsm/openapi"
+	"github.com/whc95800/synology_dsm/types"
 )
 
 // 上传证书
