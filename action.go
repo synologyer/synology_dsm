@@ -55,6 +55,11 @@ func deployCertificatesAction(cfg map[string]any) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("登录错误: %w", err)
 	}
+	defer func() {
+		if err := openapiClient.Logout(); err != nil {
+			fmt.Printf("退出登录失败: %v\n", err)
+		}
+	}()
 
 	// 2.设置令牌
 	openapiClient.WithToken()

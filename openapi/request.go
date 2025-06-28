@@ -13,6 +13,7 @@ type Client struct {
 	username string // 用户名
 	password string // 密码
 	token    string // 令牌
+	sid      string // sid 用于 logout
 }
 
 // NewClient 创建请求客户端
@@ -89,6 +90,40 @@ func (c *Client) WithLogin() (*Client, error) {
 		return nil, fmt.Errorf("token is empty")
 	}
 	c.token = loginResp.Data.Synotoken
+	c.sid = loginResp.Data.Sid // 保存 sid 用于后续 logout
 
 	return c, nil
+}
+
+// Logout 登出 DSM 会话
+// https://kb.synology.cn/zh-cn/DG/DSM_Login_Web_API_Guide/2#x_anchor_iddbcc293edb
+func (c *Client) Logout() error {
+	if c.sid == "" {
+		return nil // 没有登录，无需登出
+	}
+
+	var resp struct {
+		Success bool `json:"success"`
+	}
+
+	_, err := c.R().
+		SetQueryParam("api", "SYNO.API.Auth").
+		SetQueryParam("version", "6").
+		SetQueryParam("method", "logout").
+		SetQueryParam("_sid", c.sid). // 使用 sid 退出
+		SetResult(&resp).
+		Get("")
+
+	if err != nil {
+		return fmt.Errorf("logout failed: %v", err)
+	}
+	if !resp.Success {
+		return fmt.Errorf("logout failed: DSM returned unsuccessful status")
+	}
+
+	// 清空会话数据
+	c.token = ""
+	c.sid = ""
+
+	return nil
 }

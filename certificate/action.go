@@ -49,8 +49,9 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 		SetQueryParam("version", "1").
 		SetQueryParam("method", "import").
 		SetFormData(form).
-		SetFileReader("cert", "certificate.pem", strings.NewReader(certBundle.Certificate)).
-		SetFileReader("key", "private_key.pem", strings.NewReader(certBundle.PrivateKey)).
+		SetFileReader("cert", "cert.pem", strings.NewReader(certBundle.Certificate)).
+		SetFileReader("key", "privkey.pem", strings.NewReader(certBundle.PrivateKey)).
+		SetFileReader("inter_cert", "chain.pem", strings.NewReader(certBundle.CertificateChain)).
 		Post("")
 	if err != nil {
 		return isExist, fmt.Errorf("上传证书错误: %w", err)
