@@ -1,4 +1,4 @@
-module github.com/whc95800/synology_dsm
+module github.com/synologyer/synology_dsm
 
 go 1.23.9
 

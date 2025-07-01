@@ -3,6 +3,7 @@ package openapi
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/synologyer/synology_dsm/types"
 	"net/url"
 
 	"resty.dev/v3"
@@ -63,15 +64,7 @@ func (c *Client) WithLogin() (*Client, error) {
 	if c.token != "" {
 		return c, nil
 	}
-	var loginResp struct {
-		Data struct {
-			Did          string `json:"did"`            // 会话ID
-			IsPortalPort bool   `json:"is_portal_port"` // 是否通过公网端口访问
-			Sid          string `json:"sid"`            // 设备唯一标识
-			Synotoken    string `json:"synotoken"`      // 防止 CSRF 攻击的安全 Token
-		} `json:"data"`
-		Success bool `json:"success"` // 是否成功
-	}
+	var loginResp types.AuthResponse
 	_, err := c.R().
 		SetQueryParam("api", "SYNO.API.Auth").
 		SetQueryParam("version", "6").
@@ -101,23 +94,19 @@ func (c *Client) Logout() error {
 	if c.sid == "" {
 		return nil // 没有登录，无需登出
 	}
-
-	var resp struct {
-		Success bool `json:"success"`
-	}
-
+	var logoutResp types.AuthResponse
 	_, err := c.R().
 		SetQueryParam("api", "SYNO.API.Auth").
 		SetQueryParam("version", "6").
 		SetQueryParam("method", "logout").
 		SetQueryParam("_sid", c.sid). // 使用 sid 退出
-		SetResult(&resp).
+		SetResult(&logoutResp).
 		Get("")
 
 	if err != nil {
 		return fmt.Errorf("logout failed: %v", err)
 	}
-	if !resp.Success {
+	if !logoutResp.Success {
 		return fmt.Errorf("logout failed: DSM returned unsuccessful status")
 	}
 

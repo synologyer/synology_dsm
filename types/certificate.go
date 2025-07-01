@@ -9,9 +9,10 @@ type CertificateListResponse struct {
 			ID      string `json:"id"`   // 证书ID
 			Subject struct {
 				CommonName string   `json:"common_name"`  // 主域名
-				SubAltName []string `json:"sub_alt_name"` //
+				SubAltName []string `json:"sub_alt_name"` // 证书域名
 			} `json:"subject"`
+			ValidTill string `json:"valid_till"` // 证书过期时间
 		} `json:"certificates"`
-	} `json:"data"`
-	Success bool `json:"success"`
+	} `json:"data"` // 数据
+	Success bool `json:"success"` // 是否成功
 }
