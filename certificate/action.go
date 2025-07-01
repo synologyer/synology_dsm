@@ -1,12 +1,10 @@
 package certificate
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/synologyer/synology_dsm/core"
 	"github.com/synologyer/synology_dsm/openapi"
 	"github.com/synologyer/synology_dsm/types"
-	"io"
 	"strings"
 	"time"
 )
@@ -16,20 +14,21 @@ import (
 func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist bool, err error) {
 
 	// 1. 获取证书列表
-	var certListResp types.CertificateListResponse
+	var certListResp types.CommonResponse[types.CertificateListResponse]
 	_, err = openapiClient.R().
 		SetQueryParam("api", "SYNO.Core.Certificate.CRT").
 		SetQueryParam("version", "1").
 		SetQueryParam("method", "list").
 		SetResult(&certListResp).
+		SetContentType("application/json").
 		Get("")
 	if err != nil {
 		return false, fmt.Errorf("获取证书列表错误: %w", err)
 	}
+	// 检查证书列表响应
 	if !certListResp.Success {
 		return false, fmt.Errorf("获取证书列表失败")
 	}
-
 	var existCertID string
 	const customLayout = "Jan 02 15:04:05 2006 MST"
 	const renewBefore = 30 * 24 * time.Hour
@@ -50,8 +49,8 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 		}
 	}
 
-	// 2. 上传证书（无论是否存在都上传，存在就替换）
-	var certUpdateResp types.CommonResponse
+	// 2. 上传证书
+	var certUpdateResp types.CommonResponse[types.CertificateUpdateResponse]
 	form := map[string]string{
 		"desc": certBundle.GetNote(),
 	}
@@ -59,7 +58,7 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 		form["id"] = existCertID
 	}
 
-	resp, err := openapiClient.R().
+	_, err = openapiClient.R().
 		SetQueryParam("api", "SYNO.Core.Certificate").
 		SetQueryParam("version", "1").
 		SetQueryParam("method", "import").
@@ -67,24 +66,16 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 		SetFileReader("cert", "cert.pem", strings.NewReader(certBundle.Certificate)).
 		SetFileReader("key", "privkey.pem", strings.NewReader(certBundle.PrivateKey)).
 		SetFileReader("inter_cert", "chain.pem", strings.NewReader(certBundle.CertificateChain)).
+		SetResult(&certUpdateResp).
+		SetContentType("application/json").
+		SetForceResponseContentType("application/json").
 		Post("")
 	if err != nil {
 		return false, fmt.Errorf("上传证书错误: %w", err)
 	}
-
-	// 打印原始响应体（调试用）
-	bodyBytes, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return false, fmt.Errorf("读取响应体失败: %w", readErr)
-	}
-
-	// 解析 JSON
-	if err := json.Unmarshal(bodyBytes, &certUpdateResp); err != nil {
-		return false, fmt.Errorf("解析响应体失败: %w", err)
-	}
-
+	// 检查证书上传响应
 	if !certUpdateResp.Success {
-		return false, fmt.Errorf("上传证书失败，DSM返回: %s", string(bodyBytes))
+		return false, fmt.Errorf("上传证书失败")
 	}
 
 	return false, nil
