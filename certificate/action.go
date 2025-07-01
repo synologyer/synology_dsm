@@ -1,13 +1,14 @@
 package certificate
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/synologyer/synology_dsm/core"
 	"github.com/synologyer/synology_dsm/openapi"
 	"github.com/synologyer/synology_dsm/types"
+	"io"
+	"strings"
+	"time"
 )
 
 // 上传证书
@@ -31,22 +32,20 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 
 	var existCertID string
 	const customLayout = "Jan 02 15:04:05 2006 MST"
+	const renewBefore = 30 * 24 * time.Hour
 	for _, certInfo := range certListResp.Data.Certificates {
 		if strings.EqualFold(certInfo.Desc, certBundle.GetNote()) {
 			if certBundle.IsDNSNamesMatch(certInfo.Subject.SubAltName) {
-				var validTill time.Time
-				validTill, err = time.Parse(customLayout, certInfo.ValidTill)
+				validTill, err := time.Parse(customLayout, certInfo.ValidTill)
 				if err != nil {
 					return false, fmt.Errorf("解析过期时间失败: %w", err)
 				}
-				if validTill.After(time.Now()) {
-					// 证书已存在且未过期
+				// 证书距离到期还有超过 30 天，无需更新
+				if validTill.Sub(time.Now()) > renewBefore {
 					return true, nil
 				}
+				// 否则需要更新
 				existCertID = certInfo.ID
-			} else {
-				// 证书不存在
-				return true, nil
 			}
 		}
 	}
@@ -59,7 +58,8 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 	if existCertID != "" {
 		form["id"] = existCertID
 	}
-	_, err = openapiClient.R().
+
+	resp, err := openapiClient.R().
 		SetQueryParam("api", "SYNO.Core.Certificate").
 		SetQueryParam("version", "1").
 		SetQueryParam("method", "import").
@@ -67,14 +67,24 @@ func Action(openapiClient *openapi.Client, certBundle *core.CertBundle) (isExist
 		SetFileReader("cert", "cert.pem", strings.NewReader(certBundle.Certificate)).
 		SetFileReader("key", "privkey.pem", strings.NewReader(certBundle.PrivateKey)).
 		SetFileReader("inter_cert", "chain.pem", strings.NewReader(certBundle.CertificateChain)).
-		SetResult(&certUpdateResp).
 		Post("")
 	if err != nil {
 		return false, fmt.Errorf("上传证书错误: %w", err)
 	}
-	// 检查证书上传响应
+
+	// 打印原始响应体（调试用）
+	bodyBytes, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return false, fmt.Errorf("读取响应体失败: %w", readErr)
+	}
+
+	// 解析 JSON
+	if err := json.Unmarshal(bodyBytes, &certUpdateResp); err != nil {
+		return false, fmt.Errorf("解析响应体失败: %w", err)
+	}
+
 	if !certUpdateResp.Success {
-		return false, fmt.Errorf("上传证书失败")
+		return false, fmt.Errorf("上传证书失败，DSM返回: %s", string(bodyBytes))
 	}
 
 	return false, nil
